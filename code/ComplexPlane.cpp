@@ -5,7 +5,7 @@
 ComplexPlane::ComplexPlane(int pixelWidth, int pixelHeight)
 {
     m_pixel_size = Vector2i(pixelWidth, pixelHeight);
-    m_aspectRatio = pixelHeight / pixelWidth; /// How to be careful of integer divide?
+    m_aspectRatio = static_cast<float>(pixelHeight) / static_cast<float>(pixelWidth);
     m_plane_center = {0,0};
     m_plane_size = {BASE_WIDTH, BASE_HEIGHT * m_aspectRatio};
     m_zoomCount = 0;
@@ -82,16 +82,21 @@ size_t ComplexPlane::countIterations(Vector2f coord)
 }
 void ComplexPlane::iterationsToRGB(size_t count, Uint8& r, Uint8& g, Uint8& b)
 {
-    float h = fmod(powf((count / MAX_ITER) * 360, 1.5), 360);
-    float s = 50;
-    float l = (count / MAX_ITER) * 100;
+    if (count == MAX_ITER) {
+        r = g = b = 0;
+        return;
+    }
 
-    float c = (1 - abs(2 * l - 1)) * s;
-    float x = c * (1 - abs(fmod(h / 60, 2) - 1));
-    float m = l - c / 2;
+    float t = static_cast<float>(count) / MAX_ITER;
+    float h = 360.0f * t;
+    float s = 0.6f;
+    float v = 1.0f - t;
+
+    float c = v * s;
+    float x = c * (1.0f - fabs(fmod(h / 60.0f, 2.0f) - 1.0f));
+    float m = v - c;
 
     float r1, g1, b1;
-
     if (h >= 0 && h < 60) {
         r1 = c; g1 = x; b1 = 0;
     } else if (h >= 60 && h < 120) {
@@ -106,9 +111,9 @@ void ComplexPlane::iterationsToRGB(size_t count, Uint8& r, Uint8& g, Uint8& b)
         r1 = c; g1 = 0; b1 = x;
     }
 
-    r = static_cast<unsigned char>((r1 + m) * 255);
-    g = static_cast<unsigned char>((g1 + m) * 255);
-    b = static_cast<unsigned char>((b1 + m) * 255);
+    r = static_cast<Uint8>((r1 + m) * 255);
+    g = static_cast<Uint8>((g1 + m) * 255);
+    b = static_cast<Uint8>((b1 + m) * 255);
 }
 Vector2f ComplexPlane::mapPixelToCoords(Vector2i mousePixel)
 {

@@ -8,7 +8,7 @@ int main()
     VideoMode vm(VideoMode::getDesktopMode().width/2, VideoMode::getDesktopMode().height/2);
 
     // Create and open a window for the game
-    RenderWindow window(vm, "Mandelbrot Set!!", Style::Default);
+    RenderWindow window(vm, "Mandelbrot Set by Martin Torrefiel and Vincent Huynh", Style::Default);
 
     // Create a complex plane
     ComplexPlane plane(VideoMode::getDesktopMode().width/2, VideoMode::getDesktopMode().height/2);
@@ -16,7 +16,7 @@ int main()
     // Creat a text object with font
     sf::Text text;
     sf::Font font;
-    font.loadFromFile("CreamyCoffeeDemo-MV1Vp.ttf");
+    font.loadFromFile("Verdana.ttf");
     text.setFont(font);
     text.setCharacterSize(10);
     text.setFillColor(sf::Color::White);

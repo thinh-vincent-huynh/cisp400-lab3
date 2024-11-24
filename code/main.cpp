@@ -72,7 +72,7 @@ int main()
         ****************************************
         */
         window.clear();
-        plane.draw(window);
+        window.draw(plane);
         window.draw(text);
         window.display();
     }

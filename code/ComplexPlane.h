@@ -23,11 +23,11 @@ const float BASE_ZOOM = 0.5;
 
 enum class State { CALCULATING , DISPLAYING };
 
-class ComplexPlane
+class ComplexPlane : public Drawable
 {
 public:
     ComplexPlane(int pixelWidth, int pixelHeight);
-    void draw(RenderTarget& target, RenderStates states) const;
+    void draw(RenderTarget& target, RenderStates states) const override;
     void zoomIn();
     void zoomOut();
     void setCenter(Vector2i mousePixel);

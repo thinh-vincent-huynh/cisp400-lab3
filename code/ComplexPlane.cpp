@@ -1,0 +1,125 @@
+// Partners: Martin + Vincent
+
+#include "ComplexPlane.h"
+
+ComplexPlane::ComplexPlane(int pixelWidth, int pixelHeight)
+{
+    m_pixel_size = Vector2i(pixelWidth, pixelHeight);
+    m_aspectRatio = pixelHeight / pixelWidth; /// How to be careful of integer divide?
+    m_plane_center = {0,0};
+    m_plane_size = {BASE_WIDTH, BASE_HEIGHT * m_aspectRatio};
+    m_zoomCount = 0;
+    m_State = State::CALCULATING;
+    m_vArray.setPrimitiveType(Points);
+    m_vArray.resize(pixelWidth * pixelHeight);
+}
+void ComplexPlane::draw(RenderTarget& target, RenderStates states) const
+{
+    target.draw(m_vArray);
+}
+void ComplexPlane::zoomIn()
+{
+    m_zoomCount++;
+    float x = BASE_WIDTH * pow(BASE_ZOOM, m_ZoomCount);
+    float y = BASE_HEIGHT * m_aspectRatio * pow(BASE_ZOOM, m_ZoomCount);
+    m_plane_size = {x, y};
+    m_State = CALCULATING;
+}
+void ComplexPlane::zoomOut()
+{
+    m_zoomCount--;
+    float x = BASE_WIDTH * pow(BASE_ZOOM, m_ZoomCount);
+    float y = BASE_HEIGHT * m_aspectRatio * pow(BASE_ZOOM, m_ZoomCount);
+    m_plane_size = {x, y};
+    m_State = CALCULATING;
+}
+void ComplexPlane::setCenter(Vector2i mousePixel)
+{
+    m_plane_center = ComplexPlane::mapPixelToCoords(mousePixel);
+    m_State = CALCULATING;
+}
+void ComplexPlane::setMouseLocation(Vector2i mousePixel)
+{
+    m_mouseLocation = ComplexPlane::mapPixelToCoords(mousePixel);
+}
+void ComplexPlane::loadText(Text& text)
+{
+    stringstream str;
+    str << "Mandelbrot Set" << endl
+        << "Center: (" << m_plane_center.x << "," << m_plane_center.y << endl
+        << "Cursor: (" << m_mouseLocation.x << "," << m_mouseLocation.y << endl
+        << "Left-click to Zoom in" << endl
+        << "Right-click to Zoom out";
+    text.setString(str);
+}
+void ComplexPlane::updateRender()
+{
+    if (m_State == CALCULATING)
+    {
+        for (int j = 0; j < m_pixel_size.x; j++)
+        {
+            for (int i = 0; i < m_pixel_size.y; i++)
+            {
+                m_vArray[j + i * pixelWidth].position = { (float)j,(float)i };
+                Uint8 r, g, b;
+                ComplexPlane::iterationsToRGB(ComplexPlane::countIterations(ComplexPlane::mapPixelToCoords(Vector2i(j, i))), r, b, g);
+                m_vArray[j + i * pixelWidth].color = { r,g,b };
+            }
+        }
+        m_State = DISPLAYING;
+    }
+}
+size_t ComplexPlane::countIterations(Vector2f coord)
+{
+    complex<double> c(coord.x, coord.y);
+    complex<double> z(0.0, 0.0);
+    for (size_t i = 0; i < MAX_ITER; i++) {
+        z = z * z + c;
+        if (abs(z) > ESC_RAD) { return i; }
+    }
+    return MAX_ITER;
+}
+void ComplexPlane::iterationsToRGB(size_t count, Uint8& r, Uint8& g, Uint8& b)
+{
+    float h = fmod(powf((count / MAX_ITER) * 360, 1.5), 360);
+    float s = 50;
+    float l = (count / MAX_ITER) * 100;
+
+    float c = (1 - abs(2 * l - 1)) * s;
+    float x = c * (1 - abs(fmod(h / 60, 2) - 1));
+    float m = l - c / 2;
+
+    float r1, g1, b1;
+
+    if (h >= 0 && h < 60) {
+        r1 = c; g1 = x; b1 = 0;
+    } else if (h >= 60 && h < 120) {
+        r1 = x; g1 = c; b1 = 0;
+    } else if (h >= 120 && h < 180) {
+        r1 = 0; g1 = c; b1 = x;
+    } else if (h >= 180 && h < 240) {
+        r1 = 0; g1 = x; b1 = c;
+    } else if (h >= 240 && h < 300) {
+        r1 = x; g1 = 0; b1 = c;
+    } else {
+        r1 = c; g1 = 0; b1 = x;
+    }
+
+    r = static_cast<unsigned char>((r1 + m) * 255);
+    g = static_cast<unsigned char>((g1 + m) * 255);
+    b = static_cast<unsigned char>((b1 + m) * 255);
+}
+Vector2f ComplexPlane::mapPixelToCoords(Vector2i mousePixel)
+{
+    float real_min = m_plane_center.x - m_plane_size.x / 2.0f;
+    float real_max = m_plane_center.x + m_plane_size.x / 2.0f;
+
+    float imag_min = m_plane_center.y - m_plane_size.y / 2.0f;
+    float imag_max = m_plane_center.y + m_plane_size.y / 2.0f;
+
+    float real = ((mousePixel.x - 0) / static_cast<float>(m_screen_size.x - 0)) * (real_max - real_min) + real_min;
+
+    float imag = ((mousePixel.y - m_screen_size.y) / static_cast<float>(0 - m_screen_size.y)) * (imag_max - imag_min) + imag_min;
+
+    return {real, imag};
+}

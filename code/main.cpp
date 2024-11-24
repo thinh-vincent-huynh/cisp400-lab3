@@ -65,14 +65,14 @@ int main()
         ****************************************
         */
         plane.updateRender();
-        plane.loadText();
+        plane.loadText(text);
         /*
         ****************************************
         Draw
         ****************************************
         */
         window.clear();
-        window.draw(plane);
+        plane.draw(window);
         window.draw(text);
         window.display();
     }

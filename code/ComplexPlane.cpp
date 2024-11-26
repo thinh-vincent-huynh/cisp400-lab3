@@ -1,13 +1,13 @@
 // Partners: Martin + Vincent
 
 #include "ComplexPlane.h"
-
+#include <thread>
 ComplexPlane::ComplexPlane(int pixelWidth, int pixelHeight)
 {
     m_pixel_size = Vector2i(pixelWidth, pixelHeight);
     m_aspectRatio = static_cast<float>(pixelHeight) / static_cast<float>(pixelWidth);
-    m_plane_center = {0,0};
-    m_plane_size = {BASE_WIDTH, BASE_HEIGHT * m_aspectRatio};
+    m_plane_center = { 0,0 };
+    m_plane_size = { BASE_WIDTH, BASE_HEIGHT * m_aspectRatio };
     m_zoomCount = 0;
     m_state = State::CALCULATING;
     m_vArray.setPrimitiveType(Points);
@@ -22,7 +22,7 @@ void ComplexPlane::zoomIn()
     m_zoomCount++;
     float x = BASE_WIDTH * pow(BASE_ZOOM, m_zoomCount);
     float y = BASE_HEIGHT * m_aspectRatio * pow(BASE_ZOOM, m_zoomCount);
-    m_plane_size = {x, y};
+    m_plane_size = { x, y };
     m_state = State::CALCULATING;
 }
 void ComplexPlane::zoomOut()
@@ -30,7 +30,7 @@ void ComplexPlane::zoomOut()
     m_zoomCount--;
     float x = BASE_WIDTH * pow(BASE_ZOOM, m_zoomCount);
     float y = BASE_HEIGHT * m_aspectRatio * pow(BASE_ZOOM, m_zoomCount);
-    m_plane_size = {x, y};
+    m_plane_size = { x, y };
     m_state = State::CALCULATING;
 }
 void ComplexPlane::setCenter(Vector2i mousePixel)
@@ -50,26 +50,55 @@ void ComplexPlane::loadText(Text& text)
         << "Cursor: (" << m_mouseLocation.x << "," << m_mouseLocation.y << ")" << endl
         << "Left-click to Zoom in" << endl
         << "Right-click to Zoom out";
-    
+
     text.setString(str.str());
 }
-void ComplexPlane::updateRender()
-{
-    if (m_state == State::CALCULATING)
-    {
-        for (int j = 0; j < m_pixel_size.x; j++)
-        {
-            for (int i = 0; i < m_pixel_size.y; i++)
-            {
-                m_vArray[j + i * m_pixel_size.x].position = { (float)j,(float)i };
+void ComplexPlane::updateRender() {
+    if (m_state != State::CALCULATING) return;
+
+    //  number of threads to use in pc.
+    const unsigned int numThreads = thread::hardware_concurrency();
+    vector<thread> threads(numThreads);
+
+    // divide work into slices based on the number of threads 0-135 if 1080 height
+    int rowsPerThread = m_pixel_size.y / numThreads;
+
+   
+    auto calculateSection = [&](int startRow, int endRow) {
+        for (int i = startRow; i < endRow; ++i) {
+            for (int j = 0; j < m_pixel_size.x; ++j) {
+                int index = j + i * m_pixel_size.x;
+                Vector2f coord = mapPixelToCoords({ j, i });
+                size_t iterations = countIterations(coord);
+
                 Uint8 r, g, b;
-                ComplexPlane::iterationsToRGB(ComplexPlane::countIterations(ComplexPlane::mapPixelToCoords(Vector2i(j, i))), r, b, g);
-                m_vArray[j + i * m_pixel_size.x].color = { r,g,b };
+                iterationsToRGB(iterations, r, g, b);
+
+                // Update the VertexArray directly for this pixel
+                m_vArray[index].position = { static_cast<float>(j), static_cast<float>(i) };
+                m_vArray[index].color = Color(r, g, b);
             }
         }
-        m_state = State::DISPLAYING;
+        };
+
+    // launch threads for each slice of the screen
+    for (unsigned int t = 0; t < numThreads; ++t) {
+        int startRow = t * rowsPerThread;
+        int endRow = (t == numThreads - 1) ? m_pixel_size.y : startRow + rowsPerThread;
+        threads[t] = std::thread(calculateSection, startRow, endRow);
     }
+
+    // Wait for all threads to complete
+    for (auto& thread : threads) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+
+    // Set state to DISPLAYING after rendering is complete
+    m_state = State::DISPLAYING;
 }
+
 size_t ComplexPlane::countIterations(Vector2f coord)
 {
     complex<double> c(coord.x, coord.y);
@@ -99,15 +128,20 @@ void ComplexPlane::iterationsToRGB(size_t count, Uint8& r, Uint8& g, Uint8& b)
     float r1, g1, b1;
     if (h >= 0 && h < 60) {
         r1 = c; g1 = x; b1 = 0;
-    } else if (h >= 60 && h < 120) {
+    }
+    else if (h >= 60 && h < 120) {
         r1 = x; g1 = c; b1 = 0;
-    } else if (h >= 120 && h < 180) {
+    }
+    else if (h >= 120 && h < 180) {
         r1 = 0; g1 = c; b1 = x;
-    } else if (h >= 180 && h < 240) {
+    }
+    else if (h >= 180 && h < 240) {
         r1 = 0; g1 = x; b1 = c;
-    } else if (h >= 240 && h < 300) {
+    }
+    else if (h >= 240 && h < 300) {
         r1 = x; g1 = 0; b1 = c;
-    } else {
+    }
+    else {
         r1 = c; g1 = 0; b1 = x;
     }
 

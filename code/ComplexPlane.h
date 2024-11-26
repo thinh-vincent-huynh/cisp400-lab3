@@ -21,7 +21,7 @@ const float BASE_WIDTH = 4.0;
 const float BASE_HEIGHT = 4.0;
 const float BASE_ZOOM = 0.5;
 
-enum class State { CALCULATING , DISPLAYING };
+enum class State { CALCULATING, DISPLAYING };
 
 class ComplexPlane : public Drawable
 {
